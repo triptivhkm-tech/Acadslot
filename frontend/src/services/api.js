@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8081/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8081/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -28,10 +28,13 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !isLoginCall) {
       localStorage.removeItem("acadslot_token");
       localStorage.removeItem("acadslot_user");
-      if (window.location.pathname !== "/login") window.location.assign("/login");
+      if (window.location.pathname !== "/login")
+        window.location.assign("/login");
     }
     if (!error.response) {
-      console.error("Backend connection failed. Please ensure the AcadSlot backend server is running on port 8081.");
+      console.error(
+        "Backend connection failed. Please ensure the AcadSlot backend server is running on port 8081.",
+      );
     }
     return Promise.reject(error);
   },
