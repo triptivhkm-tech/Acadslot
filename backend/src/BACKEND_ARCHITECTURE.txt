@@ -1,0 +1,542 @@
+================================================================================
+ACADSLOT BACKEND ARCHITECTURE, COMPONENTS, AND API DOCUMENTATION
+================================================================================
+Generated for: AcadSlot Backend System
+Base Package: com.acadslot.app
+Framework: Spring Boot 4.1.1 (Java 21)
+Database: PostgreSQL (Hibernate / Spring Data JPA)
+Security: Spring Security 6.x + JWT (HMAC-SHA256) + Token-Bucket Rate Limiting
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. High-Level Architectural Overview
+2. System Layers & Design Pattern
+3. Security, Authentication & Interceptors
+4. Domain Models & Database Schema (Entities & Enums)
+5. Data Access Layer (Repositories)
+6. Business Logic Layer (Services & Validation Rules)
+7. Global Error & Exception Handling
+8. Complete REST API Specifications
+9. Data Transfer Objects (DTOs)
+10. Application Configuration & Properties
+
+================================================================================
+1. HIGH-LEVEL ARCHITECTURAL OVERVIEW
+================================================================================
+AcadSlot is an academic slot booking and appointment scheduling backend. 
+It follows a modular, layered Spring Boot architecture designed around clean
+separation of concerns:
+
+  [ Client Applications (Web / Mobile) ]
+                  |
+                  v  (HTTP / JSON + Bearer JWT)
+  +--------------------------------------------------------------+
+  |                   FILTER & INTERCEPTOR CHAIN                 |
+  |  - RateLimitInterceptor (5 req/sec token bucket per IP)      |
+  |  - SecurityFilterChain (CORS, CSRF disable, CSP Headers)     |
+  |  - JwtAuthFilter (Bearer token validation, role resolution)   |
+  +--------------------------------------------------------------+
+                  |
+                  v
+  +--------------------------------------------------------------+
+  |                     PRESENTATION LAYER                       |
+  |  - Controllers: Auth, Admin, Student, Teacher, Notification   |
+  |  - GlobalExceptionHandler (@RestControllerAdvice)             |
+  +--------------------------------------------------------------+
+                  |
+                  v
+  +--------------------------------------------------------------+
+  |                     SERVICE / BUSINESS LAYER                 |
+  |  - RequestAndApprovalService (Overlap check, rule validation)|
+  |  - NotificationService (In-app notifications)                |
+  +--------------------------------------------------------------+
+                  |
+                  v
+  +--------------------------------------------------------------+
+  |                     PERSISTENCE LAYER                        |
+  |  - Spring Data JPA Repositories (PostgreSQL)                 |
+  |  - Entities: User, Availability, Appointment, Request, etc.  |
+  +--------------------------------------------------------------+
+
+================================================================================
+2. SYSTEM LAYERS & DESIGN PATTERN
+================================================================================
+The project strictly employs standard enterprise patterns:
+
+1. Controller Layer (Presentation):
+   - Exposes RESTful JSON endpoints.
+   - Validates incoming payload constraints using Jakarta Validation (@Valid).
+   - Extracts authenticated principal metadata (such as userId) injected by the
+     JWT filter into request attributes.
+   - Encapsulates all responses inside a unified ApiResponse<T> wrapper.
+
+2. Service Layer (Business Logic):
+   - Encapsulates transactional business rules (@Transactional).
+   - Coordinates complex operations across multiple repositories.
+   - Performs domain validation (e.g. interval overlap detection, single active
+     request rule, availability boundaries).
+
+3. Repository Layer (Data Access):
+   - Extends Spring Data JPA's JpaRepository interface.
+   - Provides strongly-typed query methods using method derivation and 
+     ordering clauses (e.g., findByTeacherIdOrderByDateDesc).
+
+4. Configuration Layer:
+   - Configures Web MVC interceptors (WebConfig).
+   - Configures Spring Security filter chains, password encoders, and CORS (SecurityConfig).
+
+================================================================================
+3. SECURITY, AUTHENTICATION & INTERCEPTORS
+================================================================================
+- Authentication Mechanism: Stateless JSON Web Tokens (JWT).
+- Password Hashing: BCrypt (via BCryptPasswordEncoder).
+
+A. SecurityConfig (com.acadslot.app.security.SecurityConfig)
+   - Stateless Session Management: No HTTP sessions are stored on the server.
+   - CSRF Disabled: Safe for stateless token-based REST APIs.
+   - CORS Policy: Configured for the frontend origin (http://localhost:5173).
+   - Security Headers:
+     * Frame Options: DENY (prevents clickjacking attacks).
+     * Content Security Policy: default-src 'self'.
+   - Role-Based Authorization Hierarchy:
+     * /api/auth/**      -> Public (Permit All)
+     * /api/admin/**     -> Requires authority 'ROLE_ADMIN'
+     * /api/teacher/**   -> Requires authority 'ROLE_TEACHER'
+     * /api/student/**   -> Requires authority 'ROLE_STUDENT'
+     * All other routes  -> Authenticated
+
+B. JwtAuthFilter (com.acadslot.app.security.JwtAuthFilter)
+   - Extends OncePerRequestFilter.
+   - Intercepts requests with the 'Authorization: Bearer <token>' header.
+   - Validates cryptographic signature via JwtUtil.
+   - Populates Spring's SecurityContextHolder with UsernamePasswordAuthenticationToken.
+   - Stores the parsed 'userId' into request attributes: request.setAttribute("userId", userId).
+
+C. JwtUtil (com.acadslot.app.security.JwtUtil)
+   - Uses HMAC-SHA256 (Keys.hmacShaKeyFor).
+   - Token payload claims:
+     * Subject: user.getEmail()
+     * userId: user.getId()
+     * role: "ROLE_" + user.getRole().name()
+     * IssuedAt & Expiration (configured via jwt.expirationMs, default 24h)
+
+D. RateLimitInterceptor (com.acadslot.app.security.RateLimitInterceptor)
+   - Token Bucket algorithm (in-memory ConcurrentHashMap).
+   - Limit: 5 requests per second per IP address.
+   - Applied to /api/** endpoints.
+   - Returns HTTP 429 Too Many Requests when exhausted.
+
+================================================================================
+4. DOMAIN MODELS & DATABASE SCHEMA (ENTITIES & ENUMS)
+================================================================================
+
+A. Enums (com.acadslot.app.entity.enums)
+   1. Role:
+      - STUDENT
+      - TEACHER
+      - ADMIN
+      - PROFESSOR
+   2. AppointmentStatus:
+      - UPCOMING
+      - COMPLETED
+      - CANCELLED
+   3. RequestStatus:
+      - PENDING
+      - CANCELLED
+      - ACCEPTED
+      - REJECTED
+      - COMPLETED
+   4. NotificationType:
+      - APPOINTMENT_ACCEPTED
+      - APPOINTMENT_REJECTED
+      - APPOINTMENT_CANCELLED
+      - APPOINTMENT_UPDATED
+      - SYSTEM
+
+B. Entities (com.acadslot.app.entity)
+
+   1. User (Table: "users")
+      - id (Long, PK, Auto-Generated Identity)
+      - email (String, unique, not null)
+      - name (String, not null)
+      - passwordHash (String, not null)
+      - identifier (String, not null) - student/teacher ID number
+      - role (Role, Enum STRING, not null)
+      - isActive (boolean, default true)
+
+   2. Availability (Table: "availability")
+      - id (Long, PK, Auto-Generated Identity)
+      - teacher (User, ManyToOne, not null)
+      - date (LocalDate, not null)
+      - startTime (LocalTime, not null)
+      - endTime (LocalTime, not null)
+      - venue (String)
+      - subject (String)
+      - description (String)
+
+   3. AppointmentRequest (Table: "appointmentrequest")
+      - id (Long, PK, Auto-Generated Identity)
+      - student (User, ManyToOne, not null)
+      - teacher (User, ManyToOne, not null)
+      - availability (Availability, ManyToOne, not null)
+      - requestedStartTime (LocalTime, not null)
+      - requestedDuration (Integer, minutes, not null)
+      - reason (String, length 1000, not null)
+      - status (RequestStatus, default PENDING, not null)
+      - createdAt (LocalDateTime, not null, updatable = false)
+
+   4. Appointment (Table: "appointment")
+      - id (Long, PK, Auto-Generated Identity)
+      - teacher (User, ManyToOne, not null)
+      - student (User, ManyToOne, not null)
+      - request (AppointmentRequest, ManyToOne, not null)
+      - date (LocalDate, not null)
+      - startTime (LocalTime, not null)
+      - endTime (LocalTime, not null)
+      - duration (Integer, minutes, not null)
+      - title (String)
+      - venue (String)
+      - status (AppointmentStatus, default UPCOMING, not null)
+      - cancelReason (String)
+
+   5. Notification (Table: "notification")
+      - id (Long, PK, Auto-Generated Identity)
+      - user (User, ManyToOne, not null)
+      - title (String, not null)
+      - message (String, length 500, not null)
+      - type (NotificationType, Enum STRING, not null)
+      - isRead (boolean, default false, not null)
+      - createdAt (LocalDateTime, not null)
+
+================================================================================
+5. DATA ACCESS LAYER (REPOSITORIES)
+================================================================================
+All repositories reside in `com.acadslot.app.repository` and extend JpaRepository:
+
+1. UserRepository:
+   - findByRole(Role role) -> List<User>
+   - findByEmail(String email) -> Optional<User>
+
+2. AvailabilityRepository:
+   - Inherits all standard CRUD operations for Availability entities.
+
+3. AppointmentRepository:
+   - findByTeacherIdAndDateAndStatus(Long teacherId, LocalDate date, AppointmentStatus status)
+   - findByTeacherIdOrderByDateDesc(Long teacherId)
+   - findByStudentIdOrderByDateDesc(Long studentId)
+
+4. AppointmentRequestRepository:
+   - existsByStudentAndTeacherAndStatusIn(User student, User teacher, List<RequestStatus> statuses)
+   - findByTeacherIdOrderByCreatedAtDesc(Long teacherId)
+   - findByStudentIdOrderByCreatedAtDesc(Long studentId)
+
+5. NotificationRepository:
+   - findByUserIdOrderByCreatedAtDesc(Long userId)
+
+================================================================================
+6. BUSINESS LOGIC LAYER (SERVICES & VALIDATION RULES)
+================================================================================
+
+A. RequestAndApprovalService (com.acadslot.app.service.RequestAndApprovalService)
+   Handles the appointment lifecycle, constraints, and overlap detection:
+
+   1. submitRequest(student, availabilityId, reqStart, duration, reason):
+      - Rule 4: Duration must be strictly greater than 0.
+      - Rule 8: A student can only have ONE active request/appointment per teacher 
+        (checks for existing PENDING or ACCEPTED requests).
+      - Rule 5: Requested window [reqStart, reqStart + duration] must fit fully
+        inside teacher's availability window [availability.startTime, availability.endTime].
+      - Creates and persists AppointmentRequest with PENDING status.
+
+   2. approveRequest(requestId, teacher):
+      - Validates teacher is the actual owner of the request.
+      - Ensures request is currently in PENDING status.
+      - Rules 6 & 10 (Conflict / Overlap Detection):
+        Retrieves all UPCOMING appointments for this teacher on the same date.
+        Applies standard interval overlap formula:
+          (newStart < existing.endTime) && (newEnd > existing.startTime)
+        Throws RuntimeException if any conflict is detected.
+      - Transitions request status to ACCEPTED.
+      - Creates and saves a confirmed Appointment with UPCOMING status.
+      - Triggers an automated notification to the student.
+
+   3. rejectRequest(requestId, teacher):
+      - Verifies teacher ownership.
+      - Ensures status is PENDING.
+      - Sets status to REJECTED.
+      - Triggers an automated notification to the student.
+
+   4. cancelAppointment(appointmentId, cancelReason, teacher):
+      - Verifies teacher ownership.
+      - Requires cancellation reason (non-empty string).
+      - Transitions Appointment to CANCELLED and underlying Request to CANCELLED.
+      - Triggers cancellation notification to the student with the reason.
+
+B. NotificationService (com.acadslot.app.service.NotificationService)
+   - createNotification(user, title, message, type): Creates and persists alerts.
+   - markAsRead(notificationId, userId): Verifies ownership and flags as read.
+   - getUserNotifications(userId): Fetches all user notifications ordered newest first.
+
+================================================================================
+7. GLOBAL ERROR & EXCEPTION HANDLING
+================================================================================
+Handled centrally by `GlobalExceptionHandler` (@RestControllerAdvice):
+
+- RuntimeException:
+  Returns HTTP 400 Bad Request:
+  {
+    "success": false,
+    "message": "<exception message>",
+    "data": null,
+    "errorCode": "BAD_REQUEST"
+  }
+
+- MethodArgumentNotValidException (Validation failures on DTOs):
+  Extracts field-level constraints (@NotNull, @NotBlank, @Positive).
+  Returns HTTP 400 Bad Request:
+  {
+    "success": false,
+    "message": "Validation failed. Please check your inputs.",
+    "data": null,
+    "errorCode": "{fieldName=message, ...}"
+  }
+
+- Exception (General uncaught exceptions):
+  Returns HTTP 500 Internal Server Error:
+  {
+    "success": false,
+    "message": "An unexpected error occurred",
+    "data": null,
+    "errorCode": "INTERNAL_SERVER_ERROR"
+  }
+
+================================================================================
+8. COMPLETE REST API SPECIFICATIONS
+================================================================================
+
+All successful responses follow the ApiResponse wrapper pattern:
+{
+  "success": true,
+  "message": "<description>",
+  "data": { ... } or [ ... ],
+  "errorCode": null
+}
+
+--------------------------------------------------------------------------------
+A. AUTHENTICATION CONTROLLER (/api/auth)
+--------------------------------------------------------------------------------
+1. User Login
+   - Method: POST
+   - Path: /api/auth/login
+   - Access: Public
+   - Request Body:
+     {
+       "email": "teacher@acadslot.com",
+       "password": "secretpassword"
+     }
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "Login successful",
+       "data": {
+         "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+         "role": "TEACHER",
+         "name": "Dr. Alan Smith"
+       }
+     }
+
+--------------------------------------------------------------------------------
+B. ADMIN CONTROLLER (/api/admin)
+--------------------------------------------------------------------------------
+Requires Header: Authorization: Bearer <token> (ROLE_ADMIN)
+
+1. Get System Statistics Dashboard
+   - Method: GET
+   - Path: /api/admin/dashboard
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "System stats retrieved",
+       "data": {
+         "totalStudents": 120,
+         "totalTeachers": 25,
+         "totalPendingRequests": 8,
+         "totalUpcomingAppointments": 14
+       }
+     }
+
+2. List All Students
+   - Method: GET
+   - Path: /api/admin/students
+   - Response (200 OK):
+     List of User objects where role = STUDENT.
+
+3. List All Teachers
+   - Method: GET
+   - Path: /api/admin/teachers
+   - Response (200 OK):
+     List of User objects where role = TEACHER.
+
+4. Toggle User Status (Enable / Disable)
+   - Method: PATCH
+   - Path: /api/admin/users/{id}/status
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "User successfully enabled/disabled",
+       "data": null
+     }
+
+--------------------------------------------------------------------------------
+C. STUDENT CONTROLLER (/api/student)
+--------------------------------------------------------------------------------
+Requires Header: Authorization: Bearer <token> (ROLE_STUDENT)
+
+1. View Available Teacher Slots
+   - Method: GET
+   - Path: /api/student/availability
+   - Response (200 OK):
+     List of all Availability entities with teacher details, date, and time bounds.
+
+2. Submit Appointment Request
+   - Method: POST
+   - Path: /api/student/requests
+   - Request Body:
+     {
+       "availabilityId": 1,
+       "requestedStartTime": "10:00:00",
+       "requestedDuration": 30,
+       "reason": "Need guidance on Data Structures final project"
+     }
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "Request submitted successfully and is now PENDING",
+       "data": {
+         "id": 10,
+         "status": "PENDING",
+         "requestedStartTime": "10:00:00",
+         "requestedDuration": 30,
+         "reason": "Need guidance on Data Structures final project",
+         "createdAt": "2026-10-17T17:00:00"
+       }
+     }
+
+--------------------------------------------------------------------------------
+D. TEACHER CONTROLLER (/api/teacher)
+--------------------------------------------------------------------------------
+Requires Header: Authorization: Bearer <token> (ROLE_TEACHER)
+
+1. Create Availability Slot
+   - Method: POST
+   - Path: /api/teacher/availability
+   - Request Body:
+     {
+       "date": "2026-10-25",
+       "startTime": "09:00:00",
+       "endTime": "13:00:00",
+       "venue": "Cabin 402, Block B",
+       "subject": "Office Hours - Machine Learning",
+       "description": "Drop-in slots for project doubts"
+     }
+   - Response (200 OK): Created Availability object.
+
+2. Approve Appointment Request
+   - Method: PATCH
+   - Path: /api/teacher/requests/{id}/approve
+   - Action: Verifies no time collisions with existing bookings, creates 
+             confirmed Appointment, updates request status to ACCEPTED.
+   - Response (200 OK): Confirmed Appointment object.
+
+3. Reject Appointment Request
+   - Method: PATCH
+   - Path: /api/teacher/requests/{id}/reject
+   - Action: Sets request status to REJECTED and notifies the student.
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "Request rejected successfully",
+       "data": null
+     }
+
+4. Cancel Confirmed Appointment
+   - Method: PATCH
+   - Path: /api/teacher/appointments/{id}/cancel
+   - Request Body:
+     {
+       "reason": "Faculty meeting scheduled at this time"
+     }
+   - Action: Marks both Appointment and Request as CANCELLED; notifies student.
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "Appointment cancelled successfully",
+       "data": null
+     }
+
+5. Get Incoming Requests for Teacher
+   - Method: GET
+   - Path: /api/teacher/requests
+   - Response (200 OK):
+     List of AppointmentRequest objects for the logged-in teacher, sorted by createdAt DESC.
+
+6. Get Confirmed Appointments for Teacher
+   - Method: GET
+   - Path: /api/teacher/appointments
+   - Response (200 OK):
+     List of Appointment objects for the logged-in teacher, sorted by date DESC.
+
+--------------------------------------------------------------------------------
+E. NOTIFICATION CONTROLLER (/api/notifications)
+--------------------------------------------------------------------------------
+Requires Header: Authorization: Bearer <token> (Any Authenticated Role)
+
+1. Get User's Notifications
+   - Method: GET
+   - Path: /api/notifications
+   - Response (200 OK):
+     List of Notification objects for the current authenticated user (newest first).
+
+2. Mark Notification as Read
+   - Method: PATCH
+   - Path: /api/notifications/{id}/read
+   - Response (200 OK):
+     {
+       "success": true,
+       "message": "Notification marked as read",
+       "data": null
+     }
+
+================================================================================
+9. DATA TRANSFER OBJECTS (DTOs)
+================================================================================
+Located in `com.acadslot.app.dto`:
+
+- ApiResponse<T>: Generic standard wrapper (success, message, data, errorCode).
+- AuthResponseDto: Response payload containing JWT token, role, and user's name.
+- CancelDto: Carries the mandatory cancellation reason (@NotBlank).
+- CreateAvailabilityRequest: Carries date, startTime, endTime, venue, subject, description.
+- SubmitAppointmentRequestDto: Carries availabilityId, requestedStartTime, requestedDuration, reason.
+- AppointmentRequestDto: Minimal slotId and reason representation.
+- SystemStatsDto: Carries total counts for students, teachers, pending requests, and upcoming appointments.
+
+================================================================================
+10. APPLICATION CONFIGURATION & PROPERTIES
+================================================================================
+File: `src/main/resources/application.properties`
+
+Configuration keys:
+- spring.application.name=demo
+- spring.datasource.url=jdbc:postgresql://localhost:5432/acadslot
+- spring.datasource.username=postgres
+- spring.datasource.password=<db_password>
+- spring.jpa.hibernate.ddl-auto=update
+- spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+- spring.jpa.show-sql=true
+- jwt.secret=<hmac_secret_256bit_hex>
+- jwt.expirationMs=86400000 (24 hours)
+
+================================================================================
+END OF ARCHITECTURE & API SPECIFICATION
+================================================================================

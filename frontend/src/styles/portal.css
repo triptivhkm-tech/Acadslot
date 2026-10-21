@@ -1,0 +1,398 @@
+/* Faculty and admin portal styles.
+   These extend student.css, so the three portals share one look.
+   Everything is scoped under .sl-app and uses the same palette variables. */
+
+/* ---------- page header with an action on the right ---------- */
+
+.sl-page-head.split {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sl-head-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- notices ---------- */
+
+.sl-notice {
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  background: #e3f0ea;
+  border: 1px solid #b9d8c8;
+  border-radius: 8px;
+  color: #24524c;
+  font-size: 14px;
+}
+
+/* ---------- summary figures ---------- */
+
+.sl-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.sl-stat {
+  display: block;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--steel);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.sl-stat:hover { border-top-color: var(--blue); }
+
+.sl-stat span {
+  display: block;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.sl-stat strong {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 30px;
+  line-height: 1.1;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.sl-stat small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------- panels ---------- */
+
+.sl-panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.sl-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sl-panel-head h2 {
+  font-size: 17px;
+  color: var(--blue);
+}
+
+.sl-panel-head a {
+  color: var(--blue);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.sl-panel-head a:hover { text-decoration: underline; }
+
+.sl-panel-body { padding: 18px; }
+
+.sl-panel-empty {
+  padding: 22px 18px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.sl-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.sl-split .sl-panel { margin-bottom: 0; }
+
+.sl-aside-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.sl-aside-layout .sl-panel { margin-bottom: 0; }
+
+/* ---------- plain row lists ---------- */
+
+.sl-rowlist { list-style: none; }
+
+.sl-rowlist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sl-rowlist li:last-child { border-bottom: 0; }
+
+.sl-rowlist strong { display: block; font-size: 14.5px; }
+
+.sl-rowlist span.sub {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sl-rowlist a.sl-rowlink {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sl-rowlist li.link { padding: 0; }
+.sl-rowlist li.link a { padding: 13px 18px; }
+.sl-rowlist li.link a:hover { background: #f7f5ee; }
+.sl-rowlist li.link strong { color: var(--blue); }
+
+/* ---------- buttons (extends .sl-btn) ---------- */
+
+.sl-btn.sm {
+  padding: 6px 12px;
+  font-size: 13.5px;
+}
+
+.sl-btn.danger {
+  background: transparent;
+  border-color: #b24a45;
+  color: #9d3636;
+}
+
+.sl-btn.danger:hover { background: #f9e4e2; }
+
+.sl-btn.danger.solid {
+  background: #a53d38;
+  border-color: #a53d38;
+  color: #fff;
+}
+
+.sl-btn.danger.solid:hover { background: #8e302c; }
+
+.sl-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sl-btn-row .sl-btn { width: auto; }
+
+.sl-icon-action {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #9d3636;
+}
+
+.sl-icon-action:hover { background: #f9e4e2; border-color: #e2b4b0; }
+
+/* ---------- filter tabs (same look as .sl-tabs, but wider) ---------- */
+
+.sl-tabs.wide { max-width: 720px; }
+
+.sl-toolbar .sl-tabs { margin-bottom: 0; flex: 1 1 380px; }
+
+/* ---------- request and session cards ---------- */
+
+.sl-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sl-person h3 {
+  font-size: 16.5px;
+  color: var(--blue);
+}
+
+.sl-person .sl-dept {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-kv {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.sl-kv p + p { margin-top: 4px; }
+.sl-kv .k { color: var(--muted); }
+
+.sl-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.sl-card-actions .sl-btn { flex: 1; }
+
+/* ---------- forms ---------- */
+
+.sl-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.sl-form-grid .full { grid-column: 1 / -1; }
+
+.sl-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.sl-form-actions .sl-btn { width: auto; min-width: 120px; }
+
+.sl-field .sl-input,
+.sl-field .sl-select,
+.sl-field .sl-textarea { width: 100%; }
+
+.sl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ---------- tables ---------- */
+
+.sl-table-wrap { overflow-x: auto; }
+
+.sl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sl-table th {
+  text-align: left;
+  padding: 10px 16px;
+  background: #f7f5ee;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sl-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.sl-table tr:last-child td { border-bottom: 0; }
+
+.sl-table td strong { display: block; font-weight: 600; }
+.sl-table td .sub { display: block; font-size: 12.5px; color: var(--muted); }
+.sl-table td.wrap { min-width: 180px; max-width: 280px; }
+
+.sl-table code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sl-cell-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sl-cell-person .sl-avatar { width: 34px; height: 34px; font-size: 14px; }
+
+/* ---------- list entries (availability, venues) ---------- */
+
+.sl-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sl-entry:last-child { border-bottom: 0; }
+
+.sl-entry h4 { font-size: 15.5px; color: var(--blue); }
+
+.sl-entry .sl-item-meta { margin-top: 6px; }
+
+.sl-entry p.note {
+  margin-top: 6px;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.sl-date-box {
+  flex: none;
+  width: 54px;
+  padding: 6px 0;
+  text-align: center;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.15;
+}
+
+.sl-date-box small { display: block; font-size: 12px; color: var(--muted); }
+.sl-date-box strong { display: block; font-size: 19px; color: var(--blue); }
+
+.sl-entry-main { display: flex; gap: 14px; min-width: 0; }
+
+/* ---------- confirmation summary inside dialogs ---------- */
+
+.sl-summary {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.sl-summary p + p { margin-top: 4px; }
+.sl-summary .k { color: var(--muted); }
+
+/* ---------- small screens ---------- */
+
+@media (max-width: 900px) {
+  .sl-split,
+  .sl-aside-layout { grid-template-columns: 1fr; }
+  .sl-form-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .sl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .sl-two { grid-template-columns: 1fr; }
+  .sl-card-actions { flex-direction: column; }
+}
